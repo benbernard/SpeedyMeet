@@ -17,25 +17,34 @@ function setupPwaConnection() {
   const port = chrome.runtime.connect({ name: 'pwa-port' });
 
   port.onMessage.addListener(async (message) => {
-    if (message.action === 'NAVIGATE') {
-      // Check if on call
-      const onCall = await isUserOnCall();
-      if (onCall) {
-        return; // Don't interrupt active calls
-      }
-
-      // Navigate to new URL
-      const targetUrl = 'https://meet.google.com/' + message.url;
-      if (window.location.href !== targetUrl) {
-        window.location.href = targetUrl;
-      }
-    }
+    await handleNavigateMessage(message);
   });
 
   port.onDisconnect.addListener(() => {
     // Reconnect after a delay if disconnected
     setTimeout(setupPwaConnection, 1000);
   });
+
+  // Also listen for direct messages (fallback when port disconnects)
+  chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+    await handleNavigateMessage(message);
+  });
+}
+
+async function handleNavigateMessage(message) {
+  if (message.action === 'NAVIGATE') {
+    // Check if on call
+    const onCall = await isUserOnCall();
+    if (onCall) {
+      return; // Don't interrupt active calls
+    }
+
+    // Navigate to new URL
+    const targetUrl = 'https://meet.google.com/' + message.url;
+    if (window.location.href !== targetUrl) {
+      window.location.href = targetUrl;
+    }
+  }
 }
 
 async function isUserOnCall() {
@@ -51,17 +60,14 @@ async function isUserOnCall() {
 
 function setupRegularTabListener() {
   // This function handles the case when a tab is opened but redirected to PWA
-  // We can keep the old storage-based listener for backward compatibility
-  // or remove it entirely since we now close tabs so quickly they won't render
+  // Since tabs close so quickly now, this rarely renders, but keeping for edge cases
 
-  // For now, we'll keep a minimal version in case timing allows the tab to render
+  // Note: We can't use chrome.tabs.getCurrent() in content scripts
+  // Instead, just show the UI if we detect any originating tab change
+  // The background script will close the tab before this matters in most cases
   chrome.storage.onChanged.addListener(function (changes) {
     if (changes['originatingTabId'] && changes['originatingTabId'].newValue) {
-      chrome.tabs.getCurrent((tab) => {
-        if (tab && tab.id === changes['originatingTabId'].newValue) {
-          showRedirectingUI();
-        }
-      });
+      showRedirectingUI();
     }
   });
 }
