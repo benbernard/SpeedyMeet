@@ -1,11 +1,13 @@
 {
   "name": "Speedy Meet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Open Google Meet links in the PWA by default",
   "permissions": [
     "scripting",
     "storage",
-    "tabs"
+    "tabs",
+    "webNavigation",
+    "notifications"
   ],
   "host_permissions": [
     "https://meet.google.com/*"
@@ -20,7 +22,8 @@
       ],
       "js": [
         "contentScript.js"
-      ]
+      ],
+      "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
